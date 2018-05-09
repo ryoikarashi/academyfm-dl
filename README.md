@@ -40,7 +40,7 @@ Download all courses in academy.fm
 
 Download a specific course
 
-	python dl.py --slug getting-started-with-react
+	python dl.py --course ableton-live-10-essential-training
 
 Download all courses in a specific technology and put them to `~/Desktop/videos/ableton/*`
 
