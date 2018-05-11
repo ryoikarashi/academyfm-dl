@@ -9,6 +9,7 @@ requests = "*"
 argparse = "*"
 "bs4" = "*"
 youtube-dl = "*"
+cookiejar = "*"
 
 [requires]
 python_version = "3.5"
