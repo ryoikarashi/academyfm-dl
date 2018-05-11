@@ -1,5 +1,7 @@
 from bs4 import BeautifulSoup
-import requests
+import requests, pickle
+from http.cookiejar import MozillaCookieJar
+import youtube_dl
 import os
 from argparse import ArgumentParser
 from config import ACCOUNT
@@ -10,13 +12,13 @@ def parse_args():
     # --category: category to download
     # --slug: a course slug to download
     parser = ArgumentParser()
-    parser.add_argument('--mastercourse', help='specify a mastercourse (default: ableton)')
-    parser.add_argument('--slug', help='specify a slug to download a course with the specified slug')
+    parser.add_argument('--category', help='specify a category (default: ableton)')
+    parser.add_argument('--slug', help='specify a course slug to download a course with the specified slug')
     parser.add_argument('--directory', help='specify a directory where downloaded videos will be added')
     args = parser.parse_args()
 
-    # if technology is not specified, make default category None
-    args.mastercourse = args.mastercourse if args.mastercourse else None
+    # if category is not specified, make default category None
+    args.category = args.category if args.category else None
 
     # if directory is not specified, make default directory 'current directory (./)'
     args.directory = args.directory if args.directory else './videos'
@@ -32,38 +34,54 @@ class AcademyFmDownloader:
     def __init__(self):
         self.directory = args.directory
         self.base_url = 'https://academy.fm'
+        self.base_category_url = self.base_url + '/courses-tutorials/'
         self.courses_url = self.base_url + '/courses'
-        if args.technology:
-            self.technology = args.technology
-            self.technologies_url = self.base_url + '/technologies/' + self.technology
+        if args.category:
+            self.category = args.category
+            self.category_url = self.base_category_url + '#category=' + self.category  + '&level=all&instructor=all&type=all/'
         if args.slug:
             self.slug = args.slug
             self.course_url = self.base_url + '/courses/' + self.slug
 
+    def load_cookies(self, filename):
+        cj = MozillaCookieJar(filename)
+        cj.load(ignore_discard=True)
+        return cj
+
+
     def get_soup(self, url=None):
-        result = requests.get(url)
+        headers = {'User-Agent': 'AcademyFM Downloader'}
+        cookies = self.load_cookies('cookies.txt')
+        result = requests.get(url, headers=headers, cookies=cookies)
         c = result.content
         soup = BeautifulSoup(c, 'html.parser')
         return soup
 
-    def get_a_technology(self, slug):
-        technology_url = self.base_url + '/technologies/' + slug
-        technology_soup = self.get_soup(technology_url)
-        return technology_soup
+    def get_a_category(self, category_slug):
+        category_soup = self.get_soup(self.base_category_url + '#category=' + category_slug  + '&level=all&instructor=all&type=all/')
+        return category_soup
 
-    def get_all_technology_slugs(self):
-        courses_soup = self.get_soup(self.courses_url)
-        technology_slugs = []
-        for tech in courses_soup.select('.anchor-to-technology'):
-            technology_slugs.append(tech['data-technology'])
-        return technology_slugs
+    def get_all_category_slugs(self):
+        category_soup = self.get_soup(self.base_category_url)
+        category_slugs = []
+        for category in category_soup.select('.js-category-filter-item'):
+            category_slugs.append(category['data-category'])
+        return category_slugs
 
     def get_a_course(self, course_url):
         course_soup = self.get_soup(course_url)
         return course_soup;
 
-    def get_directory_name(self, technology_slug, course_title):
-        directory = self.directory + '/videos/' + technology_slug + '/' + course_title
+    def get_lesson_urls(self, course_soup):
+        lesson_urls = []
+        lessons = course_soup.select('.main-container iframe')
+        for lesson_soup in lessons:
+            url = lesson_soup['src']
+            lesson_urls.append(url)
+        return lesson_urls
+
+    def get_directory_name(self, category_slug, course_title):
+        directory = self.directory + '/' + category_slug + '/' + course_title
         if not os.path.exists(directory):
             os.makedirs(directory)
         return directory
@@ -77,78 +95,77 @@ class AcademyFmDownloader:
         url = self.base_url + urlparse(url).path
         return url
 
-    def get_tech_slug(self, course_soup):
-        tech_slug = course_soup.select('.cell-lesson-category.hidden-xs a').text()
-        return tech_slug
-
-    def download_via_egghead_downloader(self, technology_slug, course_title, url):
-        file_path = self.get_directory_name(technology_slug, course_title) + '/'
-        command = (
-            "youtube-dl" +
-            " -e " + ACCOUNT['username'] +
-            " -p " + ACCOUNT['password'] +
-            " -c " + url + " " + '"' + file_path + '"'
-        )
-        os.system(command)
+    def downloader(self, category_slug, course_title, lesson_urls):
+        file_path = self.get_directory_name(category_slug, course_title) + '/%(autonumber)s - %(title)s.%(ext)s'
+        ydl_opts = {
+            'cookiefile': './cookies.txt',
+            'verbose': 'true',
+            # add -4 option to avoid HTTP Error 429 Too Many Requests
+            # Ref: https://github.com/rg3/youtube-dl/issues/5138
+            # 'force-ipv4': 'true',
+            'outtmpl': file_path,
+        }
+        youtube_dl.utils.std_headers['Referer'] = self.base_url
+        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+            ydl.download(lesson_urls)
 
     def downloadAll(self):
-        # loop through technologies
-        for tech_slug in self.get_all_technology_slugs():
-            # get a certain technology page
-            tech_soup = self.get_a_technology(tech_slug)
-            # get all courses' url in a current technology
-            tech_courses = tech_soup.find_all('div', { 'class': 'card-course' })
-            # loop through courses in a current technology
-            for course_card in tech_courses:
+        # loop through categories
+        for category_slug in self.get_all_category_slugs():
+            # get a certain category page
+            category_soup = self.get_a_category(category_slug)
+            # get all courses' url in a current category
+            category_courses = category_soup.find_all(lambda tag: tag.name == 'div' and tag.get('class') == ['hover-bg-near-white', 'js-filter-item', 'course-entry'])
+            # loop through courses in a current category
+            for course_card in category_courses:
                 # get the course url
-                course_url = course_card.find('a', { 'class': 'link-overlay' })['href']
-                course_url = self.base_url + course_url
+                course_url = course_card.find('a')['href']
                 # get the course title
-                course_title = course_card.find('h3').text
+                course_title = course_card.find('h4').text
                 self.show_course_title(course_title);
                 # get the course soup
                 course_soup = self.get_a_course(course_url)
                 # get the lesson urls in a current course
-                lessons = course_soup.select('.cell-lesson-title')
+                lesson_urls = self.get_lesson_urls(course_soup)
                 # download all lessons in the course
-                self.download_via_egghead_downloader(tech_slug, course_title, course_url)
+                self.downloader(category_slug, course_title, lesson_urls)
 
-
-    def downloadSpecifiedTechnology(self):
-        # get a certain technology page
-        tech_soup = self.get_a_technology(self.technology)
-        # get all courses' url in a current technology
-        tech_courses = tech_soup.find_all('div', { 'class': 'card-course' })
-        # loop through courses in a current technology
-        for course_card in tech_courses:
+    def downloadSpecifiedCategory(self):
+        # get a certain category page
+        category_soup = self.get_a_category(self.category)
+        # get all courses' url in a current category
+        category_courses = category_soup.find_all(lambda tag: tag.name == 'div' and tag.get('class') == ['hover-bg-near-white', 'js-filter-item', 'course-entry'])
+        # loop through courses in a current category
+        for course_card in category_courses:
             # get the course url
-            course_url = course_card.find('a', { 'class': 'link-overlay' })['href']
-            course_url = self.base_url + course_url
+            course_url = course_card.find('a')['href']
             # get the course title
-            course_title = course_card.find('h3').text
+            course_title = course_card.find('h4').text
             self.show_course_title(course_title);
             # get the course soup
             course_soup = self.get_a_course(course_url)
+            # get the lesson urls in a current course
+            lesson_urls = self.get_lesson_urls(course_soup)
             # download all lessons in the course
-            self.download_via_egghead_downloader(self.technology, course_title, course_url)
+            self.downloader(self.category, course_title, lesson_urls)
 
     def downloadSpecifiedCourse(self):
         # get a course_url
         course_url = self.base_url + '/courses/' + self.slug
         # get the course soup
         course_soup = self.get_a_course(course_url)
-        # get the technology slug
-        tech_slug = course_soup.select_one('.cell-lesson-category.hidden-xs a').text
+        # get the category slug
+        category_slug = course_soup.select_one('.cell-lesson-category.hidden-xs a').text
         # get the course title
         course_title = course_soup.select_one('.text-left .title').text
         self.show_course_title(course_title)
         # download all lessons in the course
-        self.download_via_egghead_downloader(tech_slug, course_title, course_url)
+        self.downloader(category, course_title, lesson_urls)
 
-downloader = EggheadDownloader()
+downloader = AcademyFmDownloader()
 if args.slug:
     downloader.downloadSpecifiedCourse()
-elif args.technology:
-    downloader.downloadSpecifiedTechnology()
+elif args.category:
+    downloader.downloadSpecifiedCategory()
 else:
     downloader.downloadAll()
