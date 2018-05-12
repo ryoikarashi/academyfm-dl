@@ -1,11 +1,18 @@
+import sys
+import datetime
+import json
 from bs4 import BeautifulSoup
-import requests, pickle
 from http.cookiejar import MozillaCookieJar
 import youtube_dl
 import os
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkCookie, QNetworkCookieJar
+from PyQt5.QtCore import QUrl, QByteArray
+from PyQt5.QtWebEngineWidgets import QWebEnginePage
 from argparse import ArgumentParser
-from config import ACCOUNT
 from urllib.parse import urlparse
+
+COOKIES_FILE = './cookies.txt'
 
 def parse_args():
     # parse command arguments
@@ -30,6 +37,58 @@ def parse_args():
 
 args = parse_args()
 
+class Client(QWebEnginePage):
+    def __init__(self, url):
+        self.app = QApplication(sys.argv)
+        QWebEnginePage.__init__(self)
+        self.html = ''
+        self.load_cookies('cookies.txt')
+        CookieWebEngine().load()
+        self.loadFinished.connect(self.on_page_load)
+        self.load(QUrl(url))
+        self.app.exec_()
+
+    def on_page_load(self):
+        self.html = self.toHtml(self.Callable)
+        print('load finished!')
+
+    def load_cookies(self, filename):
+        with open(filename) as f:
+            data = json.load(f)
+
+        cookies = []
+
+        for item in data:
+            name = QByteArray().append(item['name'])
+            value = QByteArray().append(item['value'])
+            cookie = QNetworkCookie(name, value)
+
+            if 'domain' in item:
+                cookie.setDomain(item['domain'])
+            if 'expirationDate' in item:
+                cookie.setExpirationDate(datetime.datetime.fromtimestamp(item['expirationDate']))
+            if 'hostOnly' in item:
+                cookie.setHttpOnly(item['hostOnly'])
+            if 'path' in item:
+                cookie.setPath(item['path'])
+            if 'secure' in item:
+                cookie.setSecure(item['secure'])
+
+            cookies.append(cookie)
+
+        cookiejar = QNetworkCookieJar()
+        cookiejar.setAllCookies(cookies)
+
+        self.networkAccessManager().setCookieJar(cookiejar)
+
+    def inser_cookie(self, cookie):
+        QNetworkAccessManager().setCookieJar(cookiejar)
+        print('COOKIE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+
+    def Callable(self, html_str):
+        self.html = html_str
+        self.app.quit()
+
 class AcademyFmDownloader:
     def __init__(self):
         self.directory = args.directory
@@ -43,18 +102,11 @@ class AcademyFmDownloader:
             self.slug = args.slug
             self.course_url = self.base_url + '/courses/' + self.slug
 
-    def load_cookies(self, filename):
-        cj = MozillaCookieJar(filename)
-        cj.load(ignore_discard=True)
-        return cj
-
-
     def get_soup(self, url=None):
         headers = {'User-Agent': 'AcademyFM Downloader'}
-        cookies = self.load_cookies('cookies.txt')
-        result = requests.get(url, headers=headers, cookies=cookies)
-        c = result.content
-        soup = BeautifulSoup(c, 'html.parser')
+        response = Client(url)
+        soup = BeautifulSoup(response.html, 'html.parser')
+        print(soup)
         return soup
 
     def get_a_category(self, category_slug):
