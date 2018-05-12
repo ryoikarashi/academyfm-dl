@@ -10,6 +10,7 @@ argparse = "*"
 "bs4" = "*"
 youtube-dl = "*"
 cookiejar = "*"
+"pyqt5" = "*"
 
 [requires]
 python_version = "3.5"
