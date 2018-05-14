@@ -2,13 +2,14 @@ import sys
 import datetime
 import json
 from bs4 import BeautifulSoup
-from http.cookiejar import MozillaCookieJar
+from http.cookiejar import MozillaCookieJar, Cookie, LWPCookieJar, CookieJar
 import youtube_dl
 import os
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkCookie, QNetworkCookieJar
-from PyQt5.QtCore import QUrl, QByteArray
-from PyQt5.QtWebEngineWidgets import QWebEnginePage
+from PyQt5.QtCore import QUrl, QByteArray, QDateTime
+from PyQt5.QtWebEngineWidgets import QWebEnginePage, QWebEngineProfile
+from PyQt5.QtWebEngineCore import QWebEngineCookieStore
 from argparse import ArgumentParser
 from urllib.parse import urlparse
 
@@ -42,8 +43,7 @@ class Client(QWebEnginePage):
         self.app = QApplication(sys.argv)
         QWebEnginePage.__init__(self)
         self.html = ''
-        self.load_cookies('cookies.txt')
-        CookieWebEngine().load()
+        self.load_cookies()
         self.loadFinished.connect(self.on_page_load)
         self.load(QUrl(url))
         self.app.exec_()
@@ -52,38 +52,35 @@ class Client(QWebEnginePage):
         self.html = self.toHtml(self.Callable)
         print('load finished!')
 
-    def load_cookies(self, filename):
-        with open(filename) as f:
-            data = json.load(f)
+    def toQtCookie(self, PyCookie):
+        qc = QNetworkCookie(QByteArray().append(PyCookie.name), QByteArray().append(PyCookie.value))
+        qc.setSecure(PyCookie.secure)
+        if PyCookie.path_specified:
+            qc.setPath(PyCookie.path)
+        if PyCookie.domain != "":
+            qc.setDomain(PyCookie.domain)
+        if PyCookie.expires and PyCookie.expires != 0:
+            t = QDateTime()
+            t.setTime_t(PyCookie.expires)
+            qc.setExpirationDate(t)
+        return qc
 
-        cookies = []
+    def toQtCookieJar(self, PyCookieJar, QtCookieJar, keep_old=False):
+        allCookies = QtCookieJar.allCookies() if keep_old else []
+        for pc in PyCookieJar:
+            qc = self.toQtCookie(pc)
+            allCookies.append(qc)
 
-        for item in data:
-            name = QByteArray().append(item['name'])
-            value = QByteArray().append(item['value'])
-            cookie = QNetworkCookie(name, value)
+        QtCookieJar.setAllCookies(allCookies)
+        # qnc = QNetworkCookieJar().setAllCookies(allCookies)
+        # QNetworkAccessManager().setCookieJar(qnc)
 
-            if 'domain' in item:
-                cookie.setDomain(item['domain'])
-            if 'expirationDate' in item:
-                cookie.setExpirationDate(datetime.datetime.fromtimestamp(item['expirationDate']))
-            if 'hostOnly' in item:
-                cookie.setHttpOnly(item['hostOnly'])
-            if 'path' in item:
-                cookie.setPath(item['path'])
-            if 'secure' in item:
-                cookie.setSecure(item['secure'])
-
-            cookies.append(cookie)
-
+    def load_cookies(self):
         cookiejar = QNetworkCookieJar()
-        cookiejar.setAllCookies(cookies)
-
-        self.networkAccessManager().setCookieJar(cookiejar)
-
-    def inser_cookie(self, cookie):
-        QNetworkAccessManager().setCookieJar(cookiejar)
-        print('COOKIE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+        cj = MozillaCookieJar(COOKIES_FILE)
+        cj.load(ignore_discard=True)
+        self.toQtCookieJar(cj, cookiejar)
+        return cookiejar
 
     def Callable(self, html_str):
         self.html = html_str
