@@ -5,46 +5,48 @@ NOTE: To download premium videos, you're required to have an academy.fm premium 
 
 ## REQUIREMENTS
 
-- python 3.x
-- [pipenv](https://pipenv.org)
+- node +8
 
 ### Install requirements
-	pipenv install
+	yarn install
 
 ## USAGE
 
-**Step1:** Edit `config.py` and replace `your username here` and `your password here` with your own.
+**Step1:** Edit `.env.example` and replace `YOUR_USERNAME_HERE` and `YOUR_PASSWORD_HERE` with your own.
 
-**Step2:** Edit `cookies.txt` and copy and paste academy.fm site's cookie.
-To copy the cookie, I used [cookies.txt](https://chrome.google.com/webstore/detail/cookiestxt/njabckikapfpffapmjgojcnbfjonfjfg?hl=en), a chrome extension.
+**Step2:** Rename `.env.example` to `.env`.
 
 **Step3:** Excute the command below.
 
-	python dl.py [OPTIONS]
+	node spider.mjs
 
 ## OPTIONS
 
-	--category		category name (default: ableton)
+	--category		category name
 
-	--slug			  course slug (default: None)
+	--slug			  course slug
 			  		  it'll be shown as its url.
 
-	--directory		 directory where videos will be added
+	--output		 output directory where videos will be added
 						e.g. ~/Desktop/academyfm
 
 ## EXAMPLES
 
 Download all courses in academy.fm
 
-	python dl.py
+	node spider.mjs
 
 Download videos in a specific course
 
-	python dl.py --course ableton-live-10-essential-training
+	node spider.mjs --slug ableton-live-10-essential-training --course
+
+Download videos in a specific tutorial
+
+	node spider.mjs --slug frequency-masking-izotope-neutron --tutorial
 
 Download all courses in a specific category and put them to `~/Desktop/videos/ableton/*`
 
-	python dl.py --category ableton --directory ~/Desktop
+	node spider.mjs --category ableton --output ~/Desktop
 
 ## OUTPUT
 
