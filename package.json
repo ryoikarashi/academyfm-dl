@@ -1,0 +1,27 @@
+{
+  "name": "academyfm-dl",
+  "version": "1.0.0",
+  "description": "NOTE: To download premium videos, you're required to have an academy.fm premium account.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node --experimental-modules spider.mjs",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RyoIkarashi/academy-fm.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/RyoIkarashi/academy-fm/issues"
+  },
+  "homepage": "https://github.com/RyoIkarashi/academy-fm#readme",
+  "dependencies": {
+    "argparse": "nodeca/argparse",
+    "dotenv": "^5.0.1",
+    "fs-extra": "^6.0.1",
+    "puppeteer": "^1.4.0"
+  }
+}

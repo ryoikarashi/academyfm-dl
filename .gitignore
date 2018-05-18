@@ -1,1 +1,3 @@
-cookies.txt
+.env
+videos/*
+node_modules
