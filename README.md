@@ -1,6 +1,4 @@
-# [academy.fm](https://egghead.io) Video Downloader
-
-NOTE: To download premium videos, you're required to have an academy.fm premium account.
+# [academy.fm](https://academy.fm) Video Downloader
 
 
 ## REQUIREMENTS
