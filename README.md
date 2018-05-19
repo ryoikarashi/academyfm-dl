@@ -6,6 +6,7 @@ NOTE: To download premium videos, you're required to have an academy.fm premium 
 ## REQUIREMENTS
 
 - node +8
+- [youtube-dl](https://rg3.github.io/youtube-dl/download.html)
 
 ### Install requirements
 	yarn install
