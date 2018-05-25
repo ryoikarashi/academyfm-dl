@@ -4,7 +4,7 @@ require('dotenv').config();
 const fs = require('fs-extra');
 const puppeteer = require('puppeteer');
 const ArgumentParser = require('argparse').ArgumentParser;
-const { exec } = require('child_process');
+const { execSync } = require('child_process');
 
 const parser = new ArgumentParser({
   version: '0.0.1',
@@ -174,13 +174,7 @@ class Spider {
     console.log(youtubeDlCommand);
 
     // execute youtube-dl command
-    exec(youtubeDlCommand, (err, stdout, stderr) => {
-      if (err) new Error('node couldnt execute the command');
-
-      // the *entire* stdout and stderr (buffered)
-      console.log(`stdout: ${stdout}`);
-      console.log(`stderr: ${stderr}`);
-    });
+    execSync(youtubeDlCommand, {stdio: 'inherit'});
   }
 
   async _downloadACourse(categorySlug, courseUrl, courseTitle) {
