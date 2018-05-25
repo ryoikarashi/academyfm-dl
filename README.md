@@ -1,11 +1,10 @@
-# [academy.fm](https://egghead.io) Video Downloader
-
-NOTE: To download premium videos, you're required to have an academy.fm premium account.
+# [academy.fm](https://academy.fm) Video Downloader
 
 
 ## REQUIREMENTS
 
 - node +8
+- [youtube-dl](https://rg3.github.io/youtube-dl/download.html)
 
 ### Install requirements
 	yarn install
@@ -24,11 +23,17 @@ NOTE: To download premium videos, you're required to have an academy.fm premium 
 
 	--category		category name
 
-	--slug			  course slug
-			  		  it'll be shown as its url.
+	--slug			course/tutorial slug
+			  	it'll be shown as its url.
 
-	--output		 output directory where videos will be added
-						e.g. ~/Desktop/academyfm
+	--course		download videos in a course with specific slug
+				(you need this flag with --slug)
+					  
+	--tutorial		download videos in a tutorial with specific slug
+				(you need this flag with --slug)
+
+	--output		output directory where videos will be added
+				e.g. ~/Desktop/academyfm
 
 ## EXAMPLES
 
