@@ -152,9 +152,18 @@ class Spider {
     return lessonUrls;
   }
 
-  _getDirectoryName(categorySlug, courseTitle) {
+  async _getDirectoryName(categorySlug, courseTitle) {
     console.log('get directory name');
     const directory = `${this.args.output}/${categorySlug}/${courseTitle}`;
+
+    // skip if the directory already exists
+    const isSkip = await fs.pathExists(directory);
+
+    if(isSkip) {
+        console.log('Skip this URL becasue the directory already exists!');
+        return;
+    }
+
     fs.ensureDirSync(directory);
     return directory;
   }
@@ -165,9 +174,13 @@ class Spider {
     console.log('-'.repeat(courseTitle.length))
   }
 
-  _downloader(categorySlug, courseTitle, lessonUrls) {
+  async _downloader(categorySlug, courseTitle, lessonUrls) {
     console.log('downloader');
-    const filePath = `${this._getDirectoryName(categorySlug, courseTitle)}/%(autonumber)s - %(title)s.%(ext)s`;
+    const directory = await this._getDirectoryName(categorySlug, courseTitle);
+
+    if(!directory) return;
+
+    const filePath = `${directory}/%(autonumber)s - %(title)s.%(ext)s`;
 
     // create youtube-dl command
     const youtubeDlCommand = `youtube-dl -v "${lessonUrls.join('" "')}" --referer "${this.baseUrl}" -o "${filePath}"`;
@@ -184,7 +197,7 @@ class Spider {
       courseTitle = await this.page.$eval('.tutorial-title h1', title => title.innerHTML);
     }
     this._showCourseTitle(courseTitle);
-    this._downloader(categorySlug, courseTitle, lessonUrls);
+    await this._downloader(categorySlug, courseTitle, lessonUrls);
   }
 
   async _downloadCoursesFromACategory(categorySlug) {
